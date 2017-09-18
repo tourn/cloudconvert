@@ -58,7 +58,7 @@ public class ProcessStatus {
         public String format;
         public String type;
         public double duration;
-        public Map<String, String> options;
+        public Map<String, Object> options;
     }
     
     

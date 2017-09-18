@@ -5,6 +5,9 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import java.io.*;
 import java.net.URI;
 import java.text.ParseException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import javax.ws.rs.client.*;
 import javax.ws.rs.core.MediaType;
@@ -40,40 +43,59 @@ public class ConvertProcess {
         return root.request(APPLICATION_JSON)
                    .get(ProcessStatus.class);
     }
-    
+
+    /**
+     * Starts the conversion process for a given file.
+     */
+    public void startConversion(File file, Map<String,String> options) throws ParseException, FileNotFoundException {
+        if (!file.exists())
+            throw new FileNotFoundException("File not found: " + file);
+        startConversion(new FileDataBodyPart("file", file), options);
+    }
+
     /**
      * Starts the conversion process for a given file.
      */
     public void startConversion(File file) throws ParseException, FileNotFoundException {
-        if (!file.exists())
-            throw new FileNotFoundException("File not found: " + file);
-        startConversion(new FileDataBodyPart("file", file));
+        startConversion(file, new HashMap<String, String>());
     }
-    
-    
+
+
+    /**
+     * Starts the conversion process for a given {@code InputStream} and file name.
+     */
+    public void startConversion(InputStream input, String filename, Map<String,String> options) throws ParseException {
+        StreamDataBodyPart filePart = new StreamDataBodyPart("file", input);
+        FormDataContentDispositionBuilder builder = FormDataContentDisposition.name("file")
+                .fileName(filename);
+        filePart.setFormDataContentDisposition(builder.build());
+        startConversion(filePart, options);
+    }
+
     /**
      * Starts the conversion process for a given {@code InputStream} and file name.
      */
     public void startConversion(InputStream input, String filename) throws ParseException {
-        StreamDataBodyPart filePart = new StreamDataBodyPart("file", input);
-        FormDataContentDispositionBuilder builder = FormDataContentDisposition.name("file")
-                                                                              .fileName(filename);
-        filePart.setFormDataContentDisposition(builder.build());
-        startConversion(filePart);
+        startConversion(input, filename, new HashMap<String, String>());
     }
     
     /**
      * Starts the conversion process for a given {@code BodyPart}.
      */
-    private void startConversion(BodyPart bodyPart) {
+    private void startConversion(BodyPart bodyPart, Map<String,String> options) {
         
         if (args == null)
             throw new IllegalStateException("No conversion arguments set.");
-        
-        MultiPart multipart = new FormDataMultiPart().field("input", "upload")
-                                                     .field("outputformat", args.outputformat)
-                                                     .bodyPart(bodyPart);
-        
+
+        FormDataMultiPart builder = new FormDataMultiPart().field("input", "upload")
+                .field("outputformat", args.outputformat);
+
+        for (Map.Entry<String, String> option : options.entrySet()) {
+            builder.field(option.getKey(), option.getValue());
+        }
+
+        MultiPart multipart = builder.bodyPart(bodyPart);
+
         root.request(MediaType.APPLICATION_JSON)
             .post(Entity.entity(multipart, multipart.getMediaType()));
     }
